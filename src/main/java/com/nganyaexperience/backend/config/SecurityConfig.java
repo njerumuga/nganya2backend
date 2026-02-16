@@ -38,12 +38,10 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationManager authenticationManager(PasswordEncoder encoder) {
-        // Spring Security 7+ requires a UserDetailsService via constructor
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(encoder);
         return new ProviderManager(provider);
     }
-
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -52,25 +50,25 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Always allow preflight requests
+                        // ✅ Always allow preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // health + auth
                         .requestMatchers("/health", "/actuator/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
 
-                        // public read endpoints (frontend can browse without login)
+                        // public read endpoints
                         .requestMatchers(HttpMethod.GET, "/api/events/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/nganyas/**").permitAll()
 
-                        // 🔐 bookings require a logged-in user (JWT)
+                        // bookings require auth (JWT)
                         .requestMatchers("/api/bookings/**").authenticated()
 
-                        // keep your current admin flow working (frontend uses localStorage only)
+                        // admin (keep as you had it)
                         .requestMatchers("/api/admin/auth/**").permitAll()
                         .requestMatchers("/api/admin/**").permitAll()
 
-                        // everything else is open for now
+                        // everything else open for now
                         .anyRequest().permitAll()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -82,9 +80,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
 
-        // Add your frontend domains here.
-        // NOTE: Because allowCredentials=true, you cannot use "*" for allowedOrigins.
+        // ✅ Add the EXACT frontend domain (NO trailing slash)
         cfg.setAllowedOrigins(List.of(
+                "https://nganya-fronted21.onrender.com",
                 "http://localhost:5173",
                 "http://localhost:3000",
                 "https://nganya-frontend.onrender.com",
@@ -93,7 +91,8 @@ public class SecurityConfig {
 
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
-        cfg.setAllowCredentials(true);
+        cfg.setAllowCredentials(true); // keep true if you use cookies/auth; ok with JWT too
+        cfg.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
